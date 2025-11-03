@@ -5,11 +5,19 @@ const app = express();
 const PORT = process.env.PORT || 10000;
 const RADIO_URL = "http://186.29.40.51:8000/stream";
 
-app.set("trust proxy", true);
-app.disable("x-powered-by");
+// 🔹 Middleware para permitir CORS
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*"); // o solo tu dominio: "https://radioconecta.page.gd"
+  res.header("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Range, Accept, Origin, User-Agent");
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  next();
+});
 
 app.get("/", async (req, res) => {
-  console.log("🎧 Nueva conexión al proxy");
+  console.log("🎧 Nueva conexión al proxy desde", req.headers.origin || "local");
 
   try {
     const response = await fetch(RADIO_URL, {
@@ -19,12 +27,11 @@ app.get("/", async (req, res) => {
       }
     });
 
-    // Validar si el stream está bien
     if (!response.ok || !response.body) {
       throw new Error(`Stream inválido: ${response.status} ${response.statusText}`);
     }
 
-    // Convertir el ReadableStream web en Readable Node.js
+    // Convertir el stream web a Node.js
     const nodeStream = Readable.fromWeb(response.body);
 
     res.writeHead(200, {
@@ -33,16 +40,16 @@ app.get("/", async (req, res) => {
       "Pragma": "no-cache",
       "Expires": "0",
       "Connection": "keep-alive",
-      "Transfer-Encoding": "chunked"
+      "Transfer-Encoding": "chunked",
+      "Accept-Ranges": "bytes"
     });
 
     nodeStream.pipe(res);
 
     nodeStream.on("error", (err) => {
-      console.error("❌ Error en el stream de origen:", err);
+      console.error("❌ Error en el stream:", err);
       res.end();
     });
-
   } catch (err) {
     console.error("❌ Error al conectar con la emisora:", err);
     if (!res.headersSent)
