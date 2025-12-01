@@ -3,7 +3,7 @@ import http from "http";
 
 const app = express();
 const PORT = process.env.PORT || 10000;
-const RADIO_URL = "http://186.29.40.51:8000/stream";
+const RADIO_URL = "http://200.119.37.140:8000/stream";
 
 app.get("/", (req, res) => {
   console.log("🎧 Nueva conexión al proxy...");
