@@ -2,34 +2,52 @@ import express from "express";
 import http from "http";
 
 const app = express();
-const PORT = process.env.PORT || 10000;
-const RADIO_URL = "http://200.119.37.140:8000/stream";
+const PORT = process.env.PORT || 8080;
+
+// USAMOS STREAM DIRECTO
+const RADIO_HOST = "200.119.37.140";
+const RADIO_PORT = 8000;
+const RADIO_PATH = "/stream";
 
 app.get("/", (req, res) => {
-  console.log("🎧 Nueva conexión al proxy...");
+  console.log("🎧 Cliente conectado al proxy");
 
-  res.setHeader("Content-Type", "audio/mpeg");
-  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-  res.setHeader("Connection", "close");
-  res.setHeader("Access-Control-Allow-Origin", "*");
-
-  const radioReq = http.get(RADIO_URL, (radioRes) => {
-    radioRes.pipe(res);
+  res.writeHead(200, {
+    "Content-Type": "audio/mpeg",
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+    "Access-Control-Allow-Origin": "*",
   });
+
+  const radioReq = http.request(
+    {
+      host: RADIO_HOST,
+      port: RADIO_PORT,
+      path: RADIO_PATH,
+      method: "GET",
+      headers: {
+        "User-Agent": "Fly-Proxy",
+        "Accept": "*/*",
+      },
+    },
+    (radioRes) => {
+      radioRes.pipe(res);
+    }
+  );
 
   radioReq.on("error", (err) => {
-    console.error("❌ Error de conexión:", err.message);
-    if (!res.headersSent) res.status(502).end("Error al conectar con la emisora.");
+    console.error("❌ Error Icecast:", err.message);
+    res.end();
   });
 
-  // 👉 Si el cliente cierra, cortamos el stream para evitar conexiones huérfanas
+  radioReq.end();
+
   req.on("close", () => {
     console.log("🔌 Cliente desconectado");
     radioReq.destroy();
-    res.end();
   });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`✅ Proxy activo en puerto ${PORT}`);
 });
